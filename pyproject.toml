@@ -1,0 +1,51 @@
+[project]
+name = "kvo-devtools"
+description = "Tools for my personal development environment"
+readme = "README.md"
+requires-python = ">=3.13"
+dynamic = ["version"]
+dependencies = []
+
+[project.optional-dependencies]
+linting = [
+    "ruff>=0.11.12",
+]
+testing = [
+    "pytest>=8.3.5",
+]
+typing = [
+    "mypy>=1.16.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/kvo"]
+
+[tool.hatch.version]
+path = "src/kvo/devtools/__init__.py"
+
+[dependency-groups]
+dev = [
+    "invoke>=2.2.0",
+    "mypy>=1.16.0",
+    "nox>=2025.5.1",
+    "pre-commit>=4.2.0",
+    "ruff>=0.11.13",
+]
+
+[tool.ruff.lint]
+select = ["F", "E", "W", "I", "S", "B", "SIM", "PIE", "RUF", "PL", "UP", "N"]
+ignore = ["I001", "E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]
+"src/magaya/handshake/cli.py" = ["PLR0913", "PLR0917", "S104"]
+
+[tool.mypy]
+disable_error_code = ["var-annotated"]
+plugins = [
+    "pydantic.mypy",
+]
