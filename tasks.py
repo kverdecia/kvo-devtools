@@ -1,13 +1,17 @@
+import asyncio
 import sys
 import json
 from pathlib import Path
 
 import rich.console
 from invoke.tasks import task
+import dotenv
+from pydantic import HttpUrl
 
 from kvo.devtools.index import Index
 
 
+dotenv.load_dotenv(override=True, verbose=True)
 console = rich.console.Console()
 
 
@@ -27,6 +31,17 @@ def _load_index():
 
 
 @task
+def find_package(c, name: str):
+    index = _load_index()
+    package = index.find_package(name)
+    if package is None:
+        console.log(f"Package '{name}' not found in the index.", style="bold red")
+        sys.exit(1)
+    console.log(f"Package '{name}' found in the index.", style="bold green")
+    return package
+
+
+@task
 def generate_index_schema(c):
     """
     Generates the index schema for the devtools package.
@@ -40,15 +55,52 @@ def generate_index_schema(c):
 
 
 @task
+def open_package(c, name: str):
+    """
+    Opens a package by its name from the index.
+    If the package is not found, it raises a ValueError.
+    """
+    package = find_package(c, name)
+    with c.cd(package.path):
+        c.run(f"open .")
+
+
+@task
+def code_package(c, name: str):
+    """
+    Opens a package by its name from the index.
+    If the package is not found, it raises a ValueError.
+    """
+    package = find_package(c, name)
+    with c.cd(package.path):
+        c.run(f"code .")
+
+
+@task
 def download_package(c, name: str):
     """
     Downloads a package by its name from the index.
     If the package is not found, it raises a ValueError.
     """
-    index = _load_index()
-    package = index.find_package(name)
-    if package is None:
-        console.log(f"Package '{name}' not found in the index.", style="bold red")
-        sys.exit(1)
-    assert package is not None
-    package.download_sync()
+    package = find_package(c, name)
+    asyncio.run(package.download())
+
+
+@task(aliases=['install-deps'])
+def install_dependencies(c, name: str):
+    """
+    Installs dependencies for a package by its name from the index.
+    If the package is not found, it raises a ValueError.
+    """
+    package = find_package(c, name)
+    asyncio.run(package.install_deps())
+
+
+@task()
+def setup_package(c, name: str):
+    """
+    Installs dependencies for a package by its name from the index.
+    If the package is not found, it raises a ValueError.
+    """
+    package = find_package(c, name)
+    asyncio.run(package.setup())
