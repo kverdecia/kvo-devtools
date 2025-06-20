@@ -1,10 +1,12 @@
 import asyncio
 from pathlib import Path
 
-from pydantic import BaseModel, Field, AnyHttpUrl
+from pydantic import BaseModel, Field, AnyHttpUrl, ConfigDict
 
 from . import gitservice
-from .dependencies import DependencyTypes
+from .types import PackageTypes
+from .dependencies import DependenciesInstaller
+from .publisher import PackagePublisher
 
 
 class Repository(BaseModel):
@@ -14,6 +16,8 @@ class Repository(BaseModel):
     branch: str | None = Field(
         None, description="The branch of the package repository to clone."
     )
+
+    model_config = ConfigDict(extra='forbid')
 
 
 class Package(BaseModel):
@@ -27,10 +31,16 @@ class Package(BaseModel):
     parent_dir: Path = Field(
         ..., description="The path where to clone to the package repository."
     )
-    dependency_type: DependencyTypes | None = Field(
+    type: PackageTypes | None = Field(
         None,
         description="The type of dependencies for the package, if applicable."
     )
+    package_index: str | None = Field(
+        None,
+        description="The package index where this package is registered, if applicable."
+    )
+
+    model_config = ConfigDict(extra='forbid')
 
     def get_repository_service(self) -> gitservice.RepositoryService:
         """
@@ -69,11 +79,11 @@ class Package(BaseModel):
         Installs dependencies for the package based on its dependency type.
         If the dependency type is not set, it raises a ValueError.
         """
-        if self.dependency_type is None:
-            raise ValueError("Dependency type is not set for this package.")
-        
-        installer_class = self.dependency_type.get_dependency_installer()
-        installer = installer_class(package_dir=self.path)
+        if self.type is None:
+            raise ValueError("Package type is not set for this package.")
+
+        installer_class = DependenciesInstaller.from_package_type(self.type)
+        installer = installer_class(package_dir=self.path, package_index=self.package_index)
         await installer.install()
 
     async def setup(self) -> None:
@@ -83,3 +93,15 @@ class Package(BaseModel):
         """
         await self.download()
         await self.install_deps()
+
+    async def publish(self) -> None:
+        """
+        Publishes the package to its package index.
+        This method should be implemented to perform the actual publishing operation.
+        """
+        if self.type is None:
+            raise ValueError("Package type is not set for this package.")
+
+        publisher_class = PackagePublisher.from_package_type(self.type)
+        publisher = publisher_class(package_dir=self.path, package_index=self.package_index)
+        await publisher.publish()

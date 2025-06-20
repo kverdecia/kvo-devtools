@@ -44,8 +44,7 @@ def find_package(c, name: str):
 @task
 def generate_index_schema(c):
     """
-    Generates the index schema for the devtools package.
-    This task reads the index.json file and generates a Pydantic model schema.
+    Generates the index schema of the index json file used by the devtools package.
     """
     schema = Index.model_json_schema()
     path = Path('index-schema.json')
@@ -57,8 +56,7 @@ def generate_index_schema(c):
 @task
 def open_package(c, name: str):
     """
-    Opens a package by its name from the index.
-    If the package is not found, it raises a ValueError.
+    Opens a package directory.
     """
     package = find_package(c, name)
     with c.cd(package.path):
@@ -68,8 +66,7 @@ def open_package(c, name: str):
 @task
 def code_package(c, name: str):
     """
-    Opens a package by its name from the index.
-    If the package is not found, it raises a ValueError.
+    Opens vscode from a package directory.
     """
     package = find_package(c, name)
     with c.cd(package.path):
@@ -79,8 +76,7 @@ def code_package(c, name: str):
 @task
 def download_package(c, name: str):
     """
-    Downloads a package by its name from the index.
-    If the package is not found, it raises a ValueError.
+    Downloads a package.
     """
     package = find_package(c, name)
     asyncio.run(package.download())
@@ -89,18 +85,25 @@ def download_package(c, name: str):
 @task(aliases=['install-deps'])
 def install_dependencies(c, name: str):
     """
-    Installs dependencies for a package by its name from the index.
-    If the package is not found, it raises a ValueError.
+    Installs dependencies of a package.
     """
     package = find_package(c, name)
     asyncio.run(package.install_deps())
 
 
-@task()
+@task
 def setup_package(c, name: str):
     """
-    Installs dependencies for a package by its name from the index.
-    If the package is not found, it raises a ValueError.
+    Downloads a package and installs its dependencies.
     """
     package = find_package(c, name)
     asyncio.run(package.setup())
+
+
+@task
+def publish_package(c, name: str):
+    """
+    Publishes a package to its package index.
+    """
+    package = find_package(c, name)
+    asyncio.run(package.publish())
