@@ -3,6 +3,7 @@
         "entrypointutils",
         "gitservice",
         "packageindexes",
+        "packageversion",
         "setuppackage"
     ]
 }
