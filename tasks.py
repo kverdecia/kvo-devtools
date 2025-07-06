@@ -9,6 +9,8 @@ import dotenv
 
 from kvo.devtools.index import Index
 from kvo.devtools.package import Package
+from kvo.devtools.packageindexes import PackageIndex
+from kvo.devtools.dependencies import install_dependencies as devtools_install_dependencies
 from kvo.devtools.setuppackage import setup_package as devtools_setup_package
 
 
@@ -41,9 +43,28 @@ def _find_package(name: str) -> Package:
     return package
 
 
+def _find_package_index(name: str) -> PackageIndex:
+    index = _load_index()
+    package_index = index.find_package_index(name)
+    if package_index is None:
+        console.log(f"Package index '{name}' not found in the index.", style="bold red")
+        sys.exit(1)
+    console.log(f"Package index '{name}' found in the index.", style="bold green")
+    return package_index
+
+
 @task
 def find_package(c, name: str):
-    return _find_package(name)
+    package = _find_package(name)
+    console.print(package)
+    return package
+
+
+@task
+def find_package_index(c, name: str):
+    package_index = _find_package_index(name)
+    console.print(package_index)
+    return package_index
 
 
 @task
@@ -63,7 +84,7 @@ def open_package(c, name: str):
     """
     Opens a package directory.
     """
-    package = find_package(c, name)
+    package = _find_package(name)
     with c.cd(package.path):
         c.run(f"open .")
 
@@ -73,7 +94,7 @@ def code_package(c, name: str):
     """
     Opens vscode from a package directory.
     """
-    package = find_package(c, name)
+    package = _find_package(name)
     with c.cd(package.path):
         c.run(f"code .")
 
@@ -83,26 +104,28 @@ def download_package(c, name: str):
     """
     Downloads a package.
     """
-    package = find_package(c, name)
+    package = _find_package(name)
     asyncio.run(package.download())
 
 
 @task(aliases=['install-deps'])
-def install_dependencies(c, name: str):
+def install_dependencies(c, name: str, package_index: str | None = None):
     """
     Installs dependencies of a package.
     """
-    package = find_package(c, name)
-    asyncio.run(package.install_deps())
+    package = _find_package(name)
+    index = _find_package_index(package_index) if package_index else None
+    asyncio.run(devtools_install_dependencies(package, index))
 
 
 @task
-def setup_package(c, name: str):
+def setup_package(c, name: str, package_index: str | None = None):
     """
     Downloads a package and installs its dependencies.
     """
     package = _find_package(name)
-    asyncio.run(devtools_setup_package(package))
+    index = _find_package_index(package_index) if package_index else None
+    asyncio.run(devtools_setup_package(package, index))
 
 
 @task
@@ -110,5 +133,5 @@ def publish_package(c, name: str):
     """
     Publishes a package to its package index.
     """
-    package = find_package(c, name)
+    package = _find_package(name)
     asyncio.run(package.publish())

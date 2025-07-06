@@ -1,5 +1,6 @@
 import abc
 import importlib.metadata
+import os
 import asyncio
 import subprocess
 from pathlib import Path
@@ -9,123 +10,97 @@ from pydantic import BaseModel, Field, HttpUrl
 
 from .types import PackageTypes
 from .errors import DependenciesError
-from .packageindexes import PythonPackageIndex
+from .packageindexes import PythonPackageIndex, PackageIndex
 from .package import Package
 
 
 console = rich.console.Console()
 
 
-class DependenciesInstaller(BaseModel, metaclass=abc.ABCMeta):
-    package_dir: Path
-    package_index: str | None
+class PackageDependenciesInstaller(BaseModel, metaclass=abc.ABCMeta):
+    package: Package
+    package_index: PackageIndex | None = None
 
     @abc.abstractmethod
-    async def install(self) -> None:
+    async def install_dependencies(self) -> None:
         ...
 
-    def check_package_dir(self) -> None:
-        """
-        Checks if the package directory is a valid directory.
-        Raises DependencyError if the package directory is not valid.
-        """
-        if not self.package_dir.is_dir():
-            raise DependenciesError(f"Package directory {self.package_dir} is not a valid directory.")
 
-    @property
-    def package_index_url(self) -> HttpUrl | None:
-        raise DependenciesError("Package index URL is not supported for this dependency installer.")
-
-
-class NodeJsDependenciesInstaller(DependenciesInstaller):
-    """
-    Represents Node.js dependencies for a package.
-    This class should implement the logic to install Node.js dependencies.
-    """
-
-    async def install(self) -> None:
-        self.check_package_dir()
-        console.log(f"Installing dependencies for nodejs package in {self.package_dir}...")
+class NodeJsPackageDependenciesInstaller(PackageDependenciesInstaller):
+    async def install_dependencies(self) -> None:
+        console.log(f"Installing Node.js dependencies of package package '{self.package.name}'...")
         command = ['npm', 'install']
         process = await asyncio.create_subprocess_exec(
             *command,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            cwd=self.package_dir,
+            cwd=self.package.path,
         )
         _, stderr = await process.communicate()
         if process.returncode != 0:
             raise DependenciesError(
-                f"Error installing Node.js dependencies in {self.package_dir}: {stderr.decode('utf-8') if stderr else ''}"
+                f"Error installing Node.js package '{self.package.name}': {stderr.decode('utf-8') if stderr else ''}"
             )
-        console.log(f"Node.js dependencies installed successfully in {self.package_dir}.", style="bold green")
+        console.log(f"Node.js package '{self.package.name}' installed successfully.", style="bold green")
 
 
-class PythonUvDependenciesInstaller(DependenciesInstaller):
-    """
-    Represents Python dependencies for a package.
-    This class should implement the logic to install Python dependencies.
-    """
-
-    python_package_index: PythonPackageIndex = Field(default_factory=lambda data: PythonPackageIndex(package_index=data['package_index']))
-
+class UVPythonPackageDependenciesInstaller(PackageDependenciesInstaller):
+    python_package_index: PythonPackageIndex = Field(default_factory=lambda: PythonPackageIndex(package_index=None))
 
     @property
     def package_venv(self) -> Path:
-        """
-        Returns the path to the active virtual environment.
-        This is typically the '.venv' directory in the package directory.
-        """
-        return self.package_dir / '.venv'
+        return self.package.path / '.venv'
 
     async def create_venv(self) -> None:
-        """
-        Initializes a virtual environment in the package directory if it does not exist.
-        Raises DependencyError if the virtual environment cannot be created.
-        """
-        self.check_package_dir()
         if self.package_venv.is_dir():
             console.log(f"Virtual environment already exists in {self.package_venv}. Skipping creation.", style="bold yellow")
-            return       
+            return
         console.log(f"Creating virtual environment in {self.package_venv}...")
         command = ['uv', 'venv', str(self.package_venv)]
         process = await asyncio.create_subprocess_exec(
             *command,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            cwd=self.package_dir,
+            cwd=self.package.path,
             start_new_session=True,
         )
         _, stderr = await process.communicate()
         if process.returncode != 0:
             raise DependenciesError(
-                f"Error installing Python dependencies in {self.package_dir}: {stderr.decode('utf-8') if stderr else ''}"
+                f"Error creating virtual environment for package '{self.package.name}': {stderr.decode('utf-8') if stderr else ''}"
             )
-        console.log(f"Python virtual environment created successfully in {self.package_venv}.", style="bold green")
+        console.log(f"Virtual environment created successfully in {self.package_venv}.", style="bold green")
 
-    async def install(self) -> None:
-        console.log(f"Installing dependencies for python package in {self.package_dir}...")
-        self.check_package_dir()
-        if not self.package_venv.exists():
-            await self.create_venv()
+    async def install_dependencies(self) -> None:
+        console.log(f"Installing Python dependencies of package '{self.package.name}'...")
+        # if not self.package_venv.exists():
+        #     await self.create_venv()
         command = ['uv', 'sync']
+        kwargs = {}
+        if self.package_index:
+            env = dict(os.environ)
+            env.pop('VIRTUAL_ENV', None)
+            env['UV_INDEX']=f'{self.package_index.name}={self.package_index.download_url}'
+            if self.package_index.insecure_host:
+                env['UV_INSECURE_HOST'] = str(self.package_index.download_url.host)
+            kwargs['env'] = env
         process = await asyncio.create_subprocess_exec(
             *command,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            cwd=self.package_dir,
+            cwd=self.package.path,
             start_new_session=True,
-            env=self.python_package_index.index_env,
+            **kwargs,
         )
         _, stderr = await process.communicate()
         if process.returncode != 0:
             raise DependenciesError(
-                f"Error installing Python dependencies in {self.package_dir}: {stderr.decode('utf-8') if stderr else ''}"
+                f"Error installing Python package '{self.package.name}': {stderr.decode('utf-8') if stderr else ''}"
             )
-        console.log(f"Python dependencies installed successfully in {self.package_dir}.", style="bold green")
+        console.log(f"Python package '{self.package.name}' installed successfully.", style="bold green")
 
 
-async def install_dependencies(package: Package, package_index: str | None = None) -> None:
+async def install_dependencies(package: Package, package_index: PackageIndex | None = None) -> None:
     """
     Installs dependencies for a given package synchronously.
     This function is a wrapper around the package type dependency installer class.
@@ -147,8 +122,8 @@ async def install_dependencies(package: Package, package_index: str | None = Non
     if entrypoint is None:
         raise DependenciesError(f"No entry point found for package type '{package.type}' in group '{entrypoints_group_name}'. Ensure you have registered the dependency installer for this package type.")
     Installer = entrypoint.load()
-    if not issubclass(Installer, DependenciesInstaller):
+    if not issubclass(Installer, PackageDependenciesInstaller):
         raise DependenciesError(f"The entry point '{entrypoint.name}' does not point to a valid DependenciesInstaller subclass.")
-    console.log(f"Installing dependencies for package '{package.name}' of type '{package.type}' using entry point value '{entrypoint.value}'.")
-    installer = Installer(package_dir=package.path, package_index=package_index or package.package_index)
-    await installer.install()
+    console.log(f"Installing dependencies for package '{package.name}' of type '{package.type.value}' using entry point value '{entrypoint.value}'.")
+    installer = Installer(package=package, package_index=package_index)
+    await installer.install_dependencies()
