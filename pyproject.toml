@@ -31,6 +31,11 @@ typing = [
 python-uv = "kvo.devtools.dependencies:UVPythonPackageDependenciesInstaller"
 nodejs = "kvo.devtools.dependencies:NodeJsPackageDependenciesInstaller"
 
+[project.entry-points.kvo-devtools-package-version]
+python-uv = "kvo.devtools.packageversion:PythonPackageVersion"
+nodejs = "kvo.devtools.packageversion:NodeJsPackageVersion"
+
+
 
 [build-system]
 requires = ["hatchling"]
