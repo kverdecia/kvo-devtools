@@ -6,9 +6,9 @@ from pathlib import Path
 import rich.console
 from invoke.tasks import task
 import dotenv
-from pydantic import HttpUrl
 
 from kvo.devtools.index import Index
+from kvo.devtools.package import Package
 
 
 dotenv.load_dotenv(override=True, verbose=True)
@@ -30,8 +30,7 @@ def _load_index():
     return Index.model_validate(data)
 
 
-@task
-def find_package(c, name: str):
+def _find_package(name: str) -> Package:
     index = _load_index()
     package = index.find_package(name)
     if package is None:
@@ -39,6 +38,11 @@ def find_package(c, name: str):
         sys.exit(1)
     console.log(f"Package '{name}' found in the index.", style="bold green")
     return package
+
+
+@task
+def find_package(c, name: str):
+    return _find_package(name)
 
 
 @task
