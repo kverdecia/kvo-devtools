@@ -9,6 +9,7 @@ import dotenv
 
 from kvo.devtools.index import Index
 from kvo.devtools.package import Package
+from kvo.devtools.setuppackage import setup_package as devtools_setup_package
 
 
 dotenv.load_dotenv(override=True, verbose=True)
@@ -100,8 +101,8 @@ def setup_package(c, name: str):
     """
     Downloads a package and installs its dependencies.
     """
-    package = find_package(c, name)
-    asyncio.run(package.setup())
+    package = _find_package(name)
+    asyncio.run(devtools_setup_package(package))
 
 
 @task

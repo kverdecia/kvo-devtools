@@ -5,7 +5,6 @@ from pydantic import BaseModel, Field, AnyHttpUrl, ConfigDict
 
 from . import gitservice
 from .types import PackageTypes
-from .dependencies import DependenciesInstaller
 from .publisher import PackagePublisher
 
 
@@ -73,26 +72,6 @@ class Package(BaseModel):
     
     async def download(self) -> None:
         await asyncio.to_thread(self.download_sync)
-
-    async def install_deps(self) -> None:
-        """
-        Installs dependencies for the package based on its dependency type.
-        If the dependency type is not set, it raises a ValueError.
-        """
-        if self.type is None:
-            raise ValueError("Package type is not set for this package.")
-
-        installer_class = DependenciesInstaller.from_package_type(self.type)
-        installer = installer_class(package_dir=self.path, package_index=self.package_index)
-        await installer.install()
-
-    async def setup(self) -> None:
-        """
-        Sets up the package by downloading it and installing its dependencies.
-        This method is an asynchronous wrapper for the download and install_deps methods.
-        """
-        await self.download()
-        await self.install_deps()
 
     async def publish(self) -> None:
         """
