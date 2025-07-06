@@ -35,7 +35,9 @@ nodejs = "kvo.devtools.dependencies:NodeJsPackageDependenciesInstaller"
 python-uv = "kvo.devtools.packageversion:PythonPackageVersion"
 nodejs = "kvo.devtools.packageversion:NodeJsPackageVersion"
 
-
+[project.entry-points.kvo-devtools-clean-package]
+python-uv = "kvo.devtools.cleanpackage:UvPythonCleanPackage"
+nodejs = "kvo.devtools.cleanpackage:NodeJsCleanPackage"
 
 [build-system]
 requires = ["hatchling"]

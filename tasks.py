@@ -13,6 +13,7 @@ from kvo.devtools.packageindexes import PackageIndex
 from kvo.devtools.dependencies import install_dependencies as devtools_install_dependencies
 from kvo.devtools.setuppackage import setup_package as devtools_setup_package
 from kvo.devtools.packageversion import PackageVersion
+from kvo.devtools.cleanpackage import CleanPackage
 
 
 dotenv.load_dotenv(override=True, verbose=True)
@@ -147,3 +148,14 @@ def show_version(c, name: str):
     package_version = PackageVersion.from_package(package)
     result = asyncio.run(package_version.get_version())
     console.log(f"Package '{package.name}' version: {result}", style="bold green")
+
+
+@task
+def clean_package(c, name: str):
+    """
+    Cleans a package by removing its distribution files.
+    """
+    package = _find_package(name)
+    cleaner = CleanPackage.from_package(package)
+    asyncio.run(cleaner.clean_package())
+    console.log(f"Package '{package.name}' cleaned successfully.", style="bold green")
