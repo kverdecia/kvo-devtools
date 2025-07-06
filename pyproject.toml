@@ -28,8 +28,8 @@ typing = [
 ]
 
 [project.entry-points.kvo-devtools-dependencies-installer]
-python-uv = "kvo.devtools.dependencies:PythonUvDependenciesInstaller"
-nodejs = "kvo.devtools.dependencies:NodeJsDependenciesInstaller"
+python-uv = "kvo.devtools.dependencies:UVPythonPackageDependenciesInstaller"
+nodejs = "kvo.devtools.dependencies:NodeJsPackageDependenciesInstaller"
 
 
 [build-system]
