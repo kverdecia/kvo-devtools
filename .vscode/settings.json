@@ -3,6 +3,7 @@
         "cleanpackage",
         "entrypointutils",
         "gitservice",
+        "packagedependencies",
         "packageindexes",
         "packageversion",
         "setuppackage"
