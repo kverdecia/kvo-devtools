@@ -1,4 +1,5 @@
 from datetime import datetime
+from collections.abc import Sequence
 
 import rich.console
 from rich.table import Table
@@ -19,6 +20,27 @@ class PackageBranch(BaseModel):
     branch_name: str
     commit: str
     date: datetime
+
+    @staticmethod
+    def print_table(branches: Sequence['PackageBranch']) -> None:
+        """
+        Print a table with the branches information.
+        """
+        table = Table()
+        table.add_column("Package Name", style="bold green")
+        table.add_column("Branch", style="blue")
+        table.add_column("Commit", style="cyan")
+        table.add_column("Date", style="cyan")
+
+        for branch in branches:
+            table.add_row(
+                branch.package_name,
+                branch.branch_name,
+                branch.commit,
+                branch.date.isoformat(),
+            )
+
+        console.print(table)
 
 
 class PackageBranchWithOrigin(PackageBranch):
@@ -42,6 +64,37 @@ class PackageBranchWithOrigin(PackageBranch):
             return "Local"
         return "Origin"
 
+    @staticmethod
+    def print_table(branches: Sequence['PackageBranchWithOrigin']) -> None:
+        """
+        Print a table with the branches information.
+        """
+        table = Table()
+        table.add_column("Package Name", style="bold green")
+        table.add_column("Branch", style="blue")
+        table.add_column("Commit", style="cyan")
+        table.add_column("Date", style="cyan")
+        table.add_column("Origin Commit", style="yellow", no_wrap=True)
+        table.add_column("Origin Date", style="yellow", no_wrap=True)
+        table.add_column("Newest", style="green", no_wrap=True)
+
+        for branch in branches:
+            newest_label = branch.newest
+            if newest_label == "Local":
+                newest_label = "[bold red]Local[/]"
+            elif newest_label == "Origin":
+                newest_label = "[bold red]Origin[/]"
+            table.add_row(
+                branch.package_name,
+                branch.branch_name,
+                branch.commit,
+                branch.date.isoformat(),
+                branch.origin_commit or "N/A",
+                branch.origin_date.isoformat() if branch.origin_date else "N/A",
+                newest_label
+            )
+
+        console.print(table)
 
 
 class BranchesInfo(BaseModel):
@@ -142,35 +195,3 @@ class PackageRepository(BaseModel):
             except PackageRepositoryError as e:
                 console.log(f"Error with package '{package.name}': {e}", style="bold red")
         return active_branches
-
-    @staticmethod
-    def show_active_branches(index: Index) -> None:
-        """
-        Show the active branches of all packages in the index.
-        """
-        table = Table()
-        table.add_column("Package Name", style="bold green")
-        table.add_column("Branch", style="blue")
-        table.add_column("Commit", style="cyan")
-        table.add_column("Date", style="cyan")
-        table.add_column("Origin Commit", style="yellow", no_wrap=True)
-        table.add_column("Origin Date", style="yellow", no_wrap=True)
-        table.add_column("Newest", style="green", no_wrap=True)
-
-        for active_branch in PackageRepository.list_active_branches(index):
-            newest_label = active_branch.newest
-            if newest_label == "Local":
-                newest_label = "[bold red]Local[/]"
-            elif newest_label == "Origin":
-                newest_label = "[bold red]Origin[/]"
-            table.add_row(
-                active_branch.package_name,
-                active_branch.branch_name,
-                active_branch.commit,
-                active_branch.date.isoformat(),
-                active_branch.origin_commit or "N/A",
-                active_branch.origin_date.isoformat() if active_branch.origin_date else "N/A",
-                newest_label
-            )
-
-        console.print(table)

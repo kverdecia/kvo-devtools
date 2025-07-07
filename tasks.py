@@ -13,7 +13,7 @@ from kvo.devtools.packageindexes import PackageIndex
 from kvo.devtools.packagedependencies import PackageDependenciesInstaller
 from kvo.devtools.packageversion import PackageVersion
 from kvo.devtools.cleanpackage import CleanPackage
-from kvo.devtools.packagerepository import PackageRepository
+from kvo.devtools.packagerepository import PackageRepository, PackageBranchWithOrigin
 from kvo.devtools.setuppackage import setup_package as devtools_setup_package
 
 
@@ -196,4 +196,5 @@ def show_active_branches(c):
     Shows the active branch of all packages in the index.
     """
     index = _load_index()
-    PackageRepository.show_active_branches(index)
+    branches = PackageRepository.list_active_branches(index)
+    PackageBranchWithOrigin.print_table(branches)
