@@ -10,10 +10,10 @@ import dotenv
 from kvo.devtools.index import Index
 from kvo.devtools.package import Package
 from kvo.devtools.packageindexes import PackageIndex
-from kvo.devtools.dependencies import install_dependencies as devtools_install_dependencies
-from kvo.devtools.setuppackage import setup_package as devtools_setup_package
+from kvo.devtools.packagedependencies import PackageDependenciesInstaller
 from kvo.devtools.packageversion import PackageVersion
 from kvo.devtools.cleanpackage import CleanPackage
+from kvo.devtools.setuppackage import setup_package as devtools_setup_package
 
 
 dotenv.load_dotenv(override=True, verbose=True)
@@ -117,7 +117,8 @@ def install_dependencies(c, name: str, package_index: str | None = None):
     """
     package = _find_package(name)
     index = _find_package_index(package_index) if package_index else None
-    asyncio.run(devtools_install_dependencies(package, index))
+    installer = PackageDependenciesInstaller.from_package(package, index)
+    asyncio.run(installer.install_dependencies())
 
 
 @task
