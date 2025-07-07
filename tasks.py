@@ -188,3 +188,12 @@ def list_dirty_packages(c):
         repository = PackageRepository.from_package(package)
         if repository.is_dirty():
             console.log(f"- '{package.name}'", style="bold yellow")
+
+
+@task
+def show_active_branches(c):
+    """
+    Shows the active branch of all packages in the index.
+    """
+    index = _load_index()
+    PackageRepository.show_active_branches(index)
