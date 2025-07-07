@@ -12,3 +12,7 @@ class DependenciesError(DevToolsError):
 
 class PublishError(DevToolsError):
     """Exception raised for errors during the publishing process."""
+
+
+class PackageRepositoryError(DevToolsError):
+    """Exception raised for errors related to package repositories."""

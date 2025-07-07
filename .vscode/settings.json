@@ -2,9 +2,11 @@
     "cSpell.words": [
         "cleanpackage",
         "entrypointutils",
+        "gitpython",
         "gitservice",
         "packagedependencies",
         "packageindexes",
+        "packagerepository",
         "packageversion",
         "setuppackage"
     ]
