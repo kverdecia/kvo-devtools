@@ -4,6 +4,7 @@
         "entrypointutils",
         "gitpython",
         "gitservice",
+        "hexsha",
         "packagedependencies",
         "packageindexes",
         "packagerepository",
