@@ -13,6 +13,7 @@ from kvo.devtools.packageindexes import PackageIndex
 from kvo.devtools.packagedependencies import PackageDependenciesInstaller
 from kvo.devtools.packageversion import PackageVersion
 from kvo.devtools.cleanpackage import CleanPackage
+from kvo.devtools.packagerepository import PackageRepository
 from kvo.devtools.setuppackage import setup_package as devtools_setup_package
 
 
@@ -160,3 +161,30 @@ def clean_package(c, name: str):
     cleaner = CleanPackage.from_package(package)
     asyncio.run(cleaner.clean_package())
     console.log(f"Package '{package.name}' cleaned successfully.", style="bold green")
+
+
+@task
+def is_dirty(c, name: str):
+    """
+    Checks if a package repository is dirty (has uncommitted changes).
+    """
+    package = _find_package(name)
+    repository = PackageRepository.from_package(package)
+    if repository.is_dirty():
+        console.log(f"Package '{package.name}' repository is dirty.", style="bold yellow")
+    else:
+        console.log(f"Package '{package.name}' repository is clean.", style="bold green")
+
+
+@task
+def list_dirty_packages(c):
+    """
+    Lists all packages that have dirty repositories (uncommitted changes).
+    """
+    index = _load_index()
+    
+    console.log("Checking for dirty packages...", style="bold blue")
+    for package in index.packages:
+        repository = PackageRepository.from_package(package)
+        if repository.is_dirty():
+            console.log(f"- '{package.name}'", style="bold yellow")
