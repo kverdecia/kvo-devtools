@@ -1,9 +1,11 @@
+import os
 import asyncio
 import sys
 import json
 from pathlib import Path
 
 import rich.console
+from pydantic import SecretStr
 from invoke.tasks import task
 import dotenv
 
@@ -196,5 +198,9 @@ def show_active_branches(c):
     Shows the active branch of all packages in the index.
     """
     index = _load_index()
-    branches = PackageRepository.list_active_branches(index)
+    pat_token = [SecretStr(value) for value in os.environ.get('GITHUB_PERSONAL_ACCESS_TOKEN', '').split()]
+    if not pat_token:
+        console.log("GITHUB_PERSONAL_ACCESS_TOKEN environment variable is not set.", style="bold red")
+        sys.exit(1)
+    branches = asyncio.run(PackageRepository.list_active_branches(index, pat_token))
     PackageBranchWithOrigin.print_table(branches)

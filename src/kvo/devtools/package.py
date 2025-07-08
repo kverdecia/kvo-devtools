@@ -9,6 +9,7 @@ from .publisher import PackagePublisher
 
 
 class Repository(BaseModel):
+    "Represents a github repository."
     url: AnyHttpUrl | str = Field(
         ..., description="The URL of the package repository."
     )
@@ -17,6 +18,48 @@ class Repository(BaseModel):
     )
 
     model_config = ConfigDict(extra='forbid')
+
+    def _parts(self) -> tuple[str, str]:
+        """
+        Returns the parts of the repository URL.
+        This is used to extract the owner and repository name.
+        """
+        url = str(self.url)
+        if str(url).startswith('git@github.com:'):
+            repository = str(url).replace('git@github.com:', '', 1)
+            parts = repository.split('/')
+            if len(parts) != 2:
+                raise ValueError("Invalid GitHub repository URL format.")
+            if not parts[1].endswith('.git'):
+                raise ValueError("GitHub repository URL must end with '.git'.")
+            return parts[0], parts[1].replace('.git', '')
+        url = AnyHttpUrl(self.url)
+        if url.scheme in ('http', 'https') and isinstance(url.path, str):
+            parts = url.path.split('/')
+            if len(parts) != 2:
+                raise ValueError("Invalid GitHub repository URL format.")
+            if not parts[1].endswith('.git'):
+                raise ValueError("GitHub repository URL must end with '.git'.")
+            return parts[0], parts[1].replace('.git', '')
+        raise ValueError("Invalid GitHub repository URL format.")
+
+    @property
+    def owner(self) -> str:
+        """
+        Returns the owner of the repository.
+        This is extracted from the URL, assuming a standard format.
+        """
+        owner, _ = self._parts()
+        return owner
+
+    @property
+    def name(self) -> str:
+        """
+        Returns the name of the repository.
+        This is extracted from the URL, assuming a standard format.
+        """
+        _, name = self._parts()
+        return name
 
 
 class Package(BaseModel):
