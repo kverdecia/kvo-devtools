@@ -50,10 +50,13 @@ class PackageBranch(BaseModel):
         console.print(table)
 
 
-class PackageBranchWithOrigin(PackageBranch):
-    origin_branch_name: str | None = None
-    origin_commit: str | None = None
-    origin_date: datetime | None = None
+class PackageBranchWithOrigin(BaseModel):
+    package_name: str
+    branch_name: str
+    local_commit: str | None = None
+    local_date: datetime | None = None
+    remote_commit: str | None = None
+    remote_date: datetime | None = None
 
     @property
     def newest(self) -> str:
@@ -63,13 +66,15 @@ class PackageBranchWithOrigin(PackageBranch):
         If the date of the branch is greater than the origin date, it means that the branch is newer than the origin branch.
         Otherwise, it means that the origin branch is newer.
         """
-        if self.commit == self.origin_commit:
+        if self.local_commit == self.remote_commit:
             return "Both"
-        if self.origin_date is None:
+        if self.local_date is None:
+            return "Remote"
+        if self.remote_date is None:
             return "Local"
-        if self.date > self.origin_date:
+        if self.local_date > self.remote_date:
             return "Local"
-        return "Origin"
+        return "Remote"
 
     @staticmethod
     def print_table(branches: Sequence['PackageBranchWithOrigin']) -> None:
@@ -79,25 +84,21 @@ class PackageBranchWithOrigin(PackageBranch):
         table = Table()
         table.add_column("Package Name", style="bold green")
         table.add_column("Branch", style="blue")
-        table.add_column("Commit", style="cyan")
-        table.add_column("Date", style="cyan")
-        table.add_column("Origin Commit", style="yellow", no_wrap=True)
-        table.add_column("Origin Date", style="yellow", no_wrap=True)
+        table.add_column("Local commit", style="cyan")
+        table.add_column("Local date", style="cyan")
+        table.add_column("Remote commit", style="yellow", no_wrap=True)
+        table.add_column("Remote date", style="yellow", no_wrap=True)
         table.add_column("Newest", style="green", no_wrap=True)
 
         for branch in branches:
-            newest_label = branch.newest
-            if newest_label == "Local":
-                newest_label = "[bold red]Local[/]"
-            elif newest_label == "Origin":
-                newest_label = "[bold red]Origin[/]"
+            newest_label = branch.newest if branch.newest == "Both" else f"[bold red]{branch.newest}[/]"
             table.add_row(
                 branch.package_name,
                 branch.branch_name,
-                branch.commit,
-                branch.date.isoformat(),
-                branch.origin_commit or "N/A",
-                branch.origin_date.isoformat() if branch.origin_date else "N/A",
+                branch.local_commit if branch.local_commit else "N/A",
+                branch.local_date.isoformat() if branch.local_date else "N/A",
+                branch.remote_commit or "N/A",
+                branch.remote_date.isoformat() if branch.remote_date else "N/A",
                 newest_label
             )
 
@@ -139,12 +140,60 @@ class PackageRepository(BaseModel):
             date=active_branch.commit.committed_datetime,
         )
 
-    def get_active_branch_name(self) -> str:
+    async def get_local_branches(self) -> list[PackageBranch]:
         """
-        Get the current branch of the package repository.
+        Get all local branches of the package repository.
         If the package is not a git repository, it raises an error.
         """
-        return self.get_active_branch().branch_name
+        repository = self.get_local_git_repo()
+        branches = []
+        for branch in repository.branches:
+            branches.append(PackageBranch(
+                package_name=self.package.name,
+                branch_name=branch.name,
+                commit=branch.commit.hexsha,
+                date=branch.commit.committed_datetime.astimezone(local_tz)
+            ))
+        return branches
+    
+    async def get_local_branch(self, branch_name: str) -> PackageBranch | None:
+        found = (branch for branch in await self.get_local_branches() if branch.branch_name == branch_name)
+        return next(found, None)
+
+    async def _get_remote_branches(self) -> list[str]:
+        """
+        Get all remote branches of the package repository.
+        If the package is not a git repository, it raises an error.
+        """
+        if self.pat_token is None:
+            raise PackageRepositoryError("Personal Access Token (PAT) is required to access remote branches.")
+        async with httpx.AsyncClient() as client:
+            try:
+                url = f"https://api.github.com/repos/{self.package.repository.owner}/{self.package.repository.name}/branches"
+                tokens = self.pat_token if isinstance(self.pat_token, list) else [self.pat_token]
+                for token in tokens:
+                    headers = {"Authorization": f"token {token.get_secret_value()}"}
+                    response = await client.get(url, headers=headers)
+                    response.raise_for_status()
+                    data = response.json()
+                    return [branch['name'] for branch in data]
+            except httpx.HTTPStatusError as e:
+                console.log(f"Error fetching remote branches: {e}", style="bold red")
+                raise
+        return []
+
+    async def get_remote_branches(self) -> list[PackageBranch]:
+        """
+        Get all remote branches of the package repository.
+        If the package is not a git repository, it raises an error.
+        """
+        branch_names = await self._get_remote_branches()
+        branches = []
+        for branch_name in branch_names:
+            remote_branch = await self.get_remote_branch(branch_name)
+            if remote_branch:
+                branches.append(remote_branch)
+        return branches
 
     async def get_remote_branch(self, branch_name: str) -> PackageBranch | None:
         """
@@ -180,14 +229,30 @@ class PackageRepository(BaseModel):
                 raise
         return None
 
-    async def get_remote_active_branch(self) -> PackageBranch | None:
+    async def get_branches(self) -> list[PackageBranchWithOrigin]:
         """
-        Get the remote active branch of the package repository.
-        If the package is not a git repository, it raises an error.
+        Get all branches of the package repository, both local and remote.
+        Returns a list of PackageBranchWithOrigin objects.
         """
-        active_branch_name = self.get_active_branch_name()
-        return await self.get_remote_branch(active_branch_name)
-    
+        local_branches = await self.get_local_branches()
+        remote_branches = await self.get_remote_branches()
+        local_branches_dict = {branch.branch_name: branch for branch in local_branches}
+        remote_branches_dict = {branch.branch_name: branch for branch in remote_branches}
+        names = sorted(set(local_branches_dict).union(set(remote_branches_dict)))
+        branches = []
+        for name in names:
+            local_branch = local_branches_dict.get(name)
+            remote_branch = remote_branches_dict.get(name)
+            branches.append(PackageBranchWithOrigin(
+                package_name=self.package.name,
+                branch_name=name,
+                local_commit=local_branch.commit if local_branch else None,
+                local_date=local_branch.date if local_branch else None,
+                remote_commit=remote_branch.commit if remote_branch else None,
+                remote_date=remote_branch.date if remote_branch else None
+            ))
+        return branches
+
     def is_dirty(self) -> bool:
         """
         Check if the package repository is dirty.
@@ -211,15 +276,14 @@ class PackageRepository(BaseModel):
             repository = PackageRepository.from_package(package, pat_token)
             try:
                 active_branch = repository.get_active_branch()
-                origin_branch = await repository.get_remote_active_branch()
+                origin_branch = await repository.get_remote_branch(active_branch.branch_name)
                 branch = PackageBranchWithOrigin(
                     package_name=package.name,
                     branch_name=active_branch.branch_name,
-                    commit=active_branch.commit,
-                    date=active_branch.date,
-                    origin_branch_name=origin_branch.branch_name if origin_branch else None,
-                    origin_commit=origin_branch.commit if origin_branch else None,
-                    origin_date=origin_branch.date if origin_branch else None
+                    local_commit=active_branch.commit,
+                    local_date=active_branch.date,
+                    remote_commit=origin_branch.commit if origin_branch else None,
+                    remote_date=origin_branch.date if origin_branch else None
                 )
                 active_branches.append(branch)
             except PackageRepositoryError as e:
