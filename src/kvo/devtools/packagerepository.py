@@ -1,9 +1,13 @@
 from datetime import datetime
 from collections.abc import Sequence
+from zoneinfo import ZoneInfo
 
+
+import httpx
+from tzlocal import get_localzone_name
 import rich.console
 from rich.table import Table
-from pydantic import BaseModel
+from pydantic import BaseModel, SecretStr
 import git
 import git.exc
 
@@ -13,6 +17,9 @@ from .index import Index
 
 
 console = rich.console.Console()
+
+local_tz_name = get_localzone_name()
+local_tz = ZoneInfo(local_tz_name)
 
 
 class PackageBranch(BaseModel):
@@ -108,6 +115,7 @@ class BranchesInfo(BaseModel):
 
 class PackageRepository(BaseModel):
     package: Package
+    pat_token: SecretStr | list[SecretStr] | None = None
 
     def get_local_git_repo(self) -> git.Repo:
         try:
@@ -130,26 +138,6 @@ class PackageRepository(BaseModel):
             commit=active_branch.commit.hexsha,
             date=active_branch.commit.committed_datetime,
         )
-    
-    def get_origin_branch(self) -> PackageBranch | None:
-        """
-        Get the origin branch of the package repository.
-        If the package is not a git repository, it raises an error.
-        """
-        repository = self.get_local_git_repo()
-        origin = repository.remote('origin')
-        remote_branch_name = f"{origin.name}/{repository.active_branch.name}"
-        
-        found = (ref for ref in origin.refs if ref.name == remote_branch_name)
-        remote_branch = next(found, None)
-        if remote_branch is None:
-            return None
-        return PackageBranch(
-            package_name=self.package.name,
-            branch_name=remote_branch.name,
-            commit=remote_branch.commit.hexsha,
-            date=remote_branch.commit.committed_datetime,
-        )
 
     def get_active_branch_name(self) -> str:
         """
@@ -158,6 +146,48 @@ class PackageRepository(BaseModel):
         """
         return self.get_active_branch().branch_name
 
+    async def get_remote_branch(self, branch_name: str) -> PackageBranch | None:
+        """
+        Get a remote branch by its name.
+        If the package is not a git repository, it raises an error.
+        """
+        if self.pat_token is None:
+            raise PackageRepositoryError("Personal Access Token (PAT) is required to access remote branches.")
+        async with httpx.AsyncClient() as client:
+            try:
+                url = f"https://api.github.com/repos/{self.package.repository.owner}/{self.package.repository.name}/branches/{branch_name}"
+
+                tokens = self.pat_token if isinstance(self.pat_token, list) else [self.pat_token]
+                for token in tokens:
+                    headers = {"Authorization": f"token {token.get_secret_value()}"}
+                    response = await client.get(url, headers=headers)
+                    if response.status_code == 404:
+                        continue
+                    response.raise_for_status()
+                    data = response.json()
+                    commit_date_utc = datetime.fromisoformat(
+                        data['commit']['commit']['committer']['date'].replace('Z', '+00:00')
+                    )
+                    commit_date_local = commit_date_utc.astimezone(local_tz)
+                    return PackageBranch(
+                        package_name=self.package.name,
+                        branch_name=data['name'],
+                        commit=data['commit']['sha'],
+                        date=commit_date_local
+                    )
+            except httpx.HTTPStatusError as e:
+                console.log(f"Error fetching remote branch '{branch_name}': {e}", style="bold red")
+                raise
+        return None
+
+    async def get_remote_active_branch(self) -> PackageBranch | None:
+        """
+        Get the remote active branch of the package repository.
+        If the package is not a git repository, it raises an error.
+        """
+        active_branch_name = self.get_active_branch_name()
+        return await self.get_remote_branch(active_branch_name)
+    
     def is_dirty(self) -> bool:
         """
         Check if the package repository is dirty.
@@ -167,21 +197,21 @@ class PackageRepository(BaseModel):
         return repository.is_dirty()
 
     @classmethod
-    def from_package(cls, package: Package) -> 'PackageRepository':
-        return cls(package=package)
+    def from_package(cls, package: Package, pat_token: SecretStr | list[SecretStr] | None = None) -> 'PackageRepository':
+        return cls(package=package, pat_token=pat_token)
 
     @staticmethod
-    def list_active_branches(index: Index) -> list[PackageBranchWithOrigin]:
+    async def list_active_branches(index: Index, pat_token: SecretStr | list[SecretStr]) -> list[PackageBranchWithOrigin]:
         """
         List the active branches of all packages in the index.
         Returns a list of ActiveBranch objects.
         """
         active_branches = []
         for package in index.packages:
-            repository = PackageRepository.from_package(package)
+            repository = PackageRepository.from_package(package, pat_token)
             try:
                 active_branch = repository.get_active_branch()
-                origin_branch = repository.get_origin_branch()
+                origin_branch = await repository.get_remote_active_branch()
                 branch = PackageBranchWithOrigin(
                     package_name=package.name,
                     branch_name=active_branch.branch_name,
