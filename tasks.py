@@ -15,7 +15,7 @@ from kvo.devtools.packageindexes import PackageIndex
 from kvo.devtools.packagedependencies import PackageDependenciesInstaller
 from kvo.devtools.packageversion import PackageVersion
 from kvo.devtools.cleanpackage import CleanPackage
-from kvo.devtools.packagerepository import PackageRepository, PackageBranchWithOrigin
+from kvo.devtools.packagerepository import PackageRepository, PackageBranch, PackageBranchWithOrigin
 from kvo.devtools.setuppackage import setup_package as devtools_setup_package
 
 
@@ -192,15 +192,34 @@ def list_dirty_packages(c):
             console.log(f"- '{package.name}'", style="bold yellow")
 
 
+def get_github_token() -> list[SecretStr]:
+    """
+    Retrieves the GitHub personal access token from the environment variable.
+    If the token is not set, it raises an error.
+    """
+    pat_token = [SecretStr(value) for value in os.environ.get('GITHUB_PERSONAL_ACCESS_TOKEN', '').split()]
+    if not pat_token:
+        console.log("GITHUB_PERSONAL_ACCESS_TOKEN environment variable is not set.", style="bold red")
+        sys.exit(1)
+    return pat_token
+
+
 @task
 def show_active_branches(c):
     """
     Shows the active branch of all packages in the index.
     """
     index = _load_index()
-    pat_token = [SecretStr(value) for value in os.environ.get('GITHUB_PERSONAL_ACCESS_TOKEN', '').split()]
-    if not pat_token:
-        console.log("GITHUB_PERSONAL_ACCESS_TOKEN environment variable is not set.", style="bold red")
-        sys.exit(1)
-    branches = asyncio.run(PackageRepository.list_active_branches(index, pat_token))
+    branches = asyncio.run(PackageRepository.list_active_branches(index, get_github_token()))
+    PackageBranchWithOrigin.print_table(branches)
+
+
+@task
+def package_branches(c, name: str):
+    """
+    Lists all branches of a package.
+    """
+    package = _find_package(name)
+    repository = PackageRepository.from_package(package, get_github_token())
+    branches = asyncio.run(repository.get_branches())
     PackageBranchWithOrigin.print_table(branches)
