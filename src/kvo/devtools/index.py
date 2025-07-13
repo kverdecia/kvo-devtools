@@ -20,7 +20,7 @@ class Index(BaseModel):
             if package.name == name:
                 return package
         return None
-    
+
     def find_package_index(self, name: str) -> PackageIndex | None:
         """
         Finds a package index by its name in the index.

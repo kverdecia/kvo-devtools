@@ -31,10 +31,10 @@ class CleanPackage(BaseModel, metaclass=abc.ABCMeta):
         entrypoint = next((ep for ep in entrypoints if ep.name == package.type.value), None)
         if entrypoint is None:
             raise ValueError(f"No entry point found for package type '{package.type}' in group '{entrypoints_group_name}'. Ensure you have registered the package cleaner for package type '{package.type}'.")
-        Processor = entrypoint.load()
-        if not issubclass(Processor, cls):
+        processor = entrypoint.load()
+        if not issubclass(processor, cls):
             raise ValueError(f"The entry point '{entrypoint.name}' does not point to a valid CleanPackage subclass.")
-        return Processor(package=package)
+        return processor(package=package)
 
 
 class NodeJsCleanPackage(CleanPackage):
@@ -60,7 +60,7 @@ class UvPythonCleanPackage(CleanPackage):
             cwd=self.package.path,
             start_new_session=True,
         )
-        stdout, stderr = await process.communicate()
+        _, stderr = await process.communicate()
         error_message = stderr.decode('utf-8') if stderr else ''
         if process.returncode == 1 and error_message.strip() == "No idea what 'clean' is!":
             console.log(f"No 'clean' task found in {self.package.path / 'tasks.py'}", style='bold yellow')

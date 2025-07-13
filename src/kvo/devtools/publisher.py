@@ -1,4 +1,3 @@
-import os
 import abc
 import asyncio
 import subprocess
@@ -26,8 +25,8 @@ class PackagePublisher(BaseModel, metaclass=abc.ABCMeta):
         }
         try:
             return config[package_type]
-        except KeyError:
-            raise PublishError(f"There is no package type publisher registered for package type {package_type}.")
+        except KeyError as error:
+            raise PublishError(f"There is no package type publisher registered for package type {package_type}.") from error
 
 
 class PythonUvPackagePublisher(PackagePublisher):
@@ -53,8 +52,7 @@ class PythonUvPackagePublisher(PackagePublisher):
             raise PublishError(
                 f"Error publishing python package in {self.package_index} package index: {stderr.decode('utf-8') if stderr else ''}"
             )
-        console.log(f"Python package published successfully in {self.package_index} package index.", style="bold green")        
-
+        console.log(f"Python package published successfully in {self.package_index} package index.", style="bold green")
 
     async def publish(self) -> None:
         await self.build()

@@ -4,7 +4,7 @@ from pathlib import Path
 from pydantic import BaseModel, Field, AnyHttpUrl, ConfigDict
 
 from . import gitservice
-from .types import PackageTypes
+from .types import PackageTypes, AnyHttpUrlAdapter
 from .publisher import PackagePublisher
 
 
@@ -19,6 +19,16 @@ class Repository(BaseModel):
 
     model_config = ConfigDict(extra='forbid')
 
+    @staticmethod
+    def split_repo_path(path: str) -> tuple[str, str]:
+        try:
+            owner, repo_name = path.split('/')
+            if not repo_name.endswith('.git'):
+                raise ValueError("GitHub repository URL must end with '.git'.")
+            return owner, repo_name.replace('.git', '')
+        except ValueError as error:
+            raise ValueError("Invalid GitHub repository URL format.") from error
+
     def _parts(self) -> tuple[str, str]:
         """
         Returns the parts of the repository URL.
@@ -27,20 +37,10 @@ class Repository(BaseModel):
         url = str(self.url)
         if str(url).startswith('git@github.com:'):
             repository = str(url).replace('git@github.com:', '', 1)
-            parts = repository.split('/')
-            if len(parts) != 2:
-                raise ValueError("Invalid GitHub repository URL format.")
-            if not parts[1].endswith('.git'):
-                raise ValueError("GitHub repository URL must end with '.git'.")
-            return parts[0], parts[1].replace('.git', '')
-        url = AnyHttpUrl(self.url)
-        if url.scheme in ('http', 'https') and isinstance(url.path, str):
-            parts = url.path.split('/')
-            if len(parts) != 2:
-                raise ValueError("Invalid GitHub repository URL format.")
-            if not parts[1].endswith('.git'):
-                raise ValueError("GitHub repository URL must end with '.git'.")
-            return parts[0], parts[1].replace('.git', '')
+            return self.split_repo_path(repository)
+        parsed_url = AnyHttpUrlAdapter.validate_python(self.url)
+        if parsed_url.scheme in {'http', 'https'} and isinstance(parsed_url.path, str):
+            return self.split_repo_path(parsed_url.path)
         raise ValueError("Invalid GitHub repository URL format.")
 
     @property
@@ -112,7 +112,7 @@ class Package(BaseModel):
         repo.clone()
         repo.checkout_branch()
         repo.pull()
-    
+
     async def download(self) -> None:
         await asyncio.to_thread(self.download_sync)
 
