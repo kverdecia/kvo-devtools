@@ -15,7 +15,7 @@ from kvo.devtools.packageindexes import PackageIndex
 from kvo.devtools.packagedependencies import PackageDependenciesInstaller
 from kvo.devtools.packageversion import PackageVersion
 from kvo.devtools.cleanpackage import CleanPackage
-from kvo.devtools.packagerepository import PackageRepository, PackageBranch, PackageBranchWithOrigin
+from kvo.devtools.packagerepository import PackageRepository, PackageBranchWithOrigin
 from kvo.devtools.setuppackage import setup_package as devtools_setup_package
 
 
@@ -31,10 +31,9 @@ def _load_index():
     path = Path('index.json')
     if not path.exists():
         raise FileNotFoundError(f"Index file {path} does not exist.")
-    
-    with open(path, 'r') as stream:
-        data = json.load(stream)
-    
+
+    data = json.loads(path.read_text())
+
     return Index.model_validate(data)
 
 
@@ -79,8 +78,7 @@ def generate_index_schema(c):
     """
     schema = Index.model_json_schema()
     path = Path('index-schema.json')
-    with open(path, 'w') as stream:
-        json.dump(schema, stream, indent=4)
+    path.write_text(json.dumps(schema, indent=4))
     console.log(f"Index schema generated successfully in {path}.", style="bold green")
 
 
@@ -91,7 +89,7 @@ def open_package(c, name: str):
     """
     package = _find_package(name)
     with c.cd(package.path):
-        c.run(f"open .")
+        c.run("open .")
 
 
 @task
@@ -101,7 +99,7 @@ def code_package(c, name: str):
     """
     package = _find_package(name)
     with c.cd(package.path):
-        c.run(f"code .")
+        c.run("code .")
 
 
 @task
@@ -184,7 +182,7 @@ def list_dirty_packages(c):
     Lists all packages that have dirty repositories (uncommitted changes).
     """
     index = _load_index()
-    
+
     console.log("Checking for dirty packages...", style="bold blue")
     for package in index.packages:
         repository = PackageRepository.from_package(package)

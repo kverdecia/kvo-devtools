@@ -1,5 +1,3 @@
-import asyncio
-import subprocess
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -42,10 +40,10 @@ class RepositoryService(BaseModel):
     def get_local_git_repo(self) -> git.Repo:
         try:
             return git.Repo(self.local_path)
-        except git.exc.InvalidGitRepositoryError:
-            raise GitError(f"The path {self.local_path} is not a valid Git repository.")
-        except git.exc.NoSuchPathError:
-            raise GitError(f"The path {self.local_path} does not exist or is not a valid directory.")
+        except git.exc.InvalidGitRepositoryError as error:
+            raise GitError(f"The path {self.local_path} is not a valid Git repository.") from error
+        except git.exc.NoSuchPathError as error:
+            raise GitError(f"The path {self.local_path} does not exist or is not a valid directory.") from error
 
     def clone(self) -> None:
         """Clones the repository to the specified parent directory."""
@@ -56,9 +54,9 @@ class RepositoryService(BaseModel):
         try:
             git.Repo.clone_from(str(self.url), self.local_path, branch=self.branch)
             console.log(f"Cloned repository {self.url} to {self.local_path}.", style="bold green")
-        except git.exc.GitCommandError as e:
-            raise GitError(f"Error cloning repository {self.url}: {str(e)}")
-        
+        except git.exc.GitCommandError as error:
+            raise GitError(f"Error cloning repository {self.url}: {error}") from error
+
     def checkout_branch(self, branch: str | None = None) -> None:
         """Checks out the specified branch in the local repository."""
         branch = branch or self.branch
@@ -66,13 +64,13 @@ class RepositoryService(BaseModel):
         try:
             repo.git.checkout(branch)
             console.log(f"Checked out branch {branch} in repository {self.url}.", style="bold green")
-        except git.exc.GitCommandError as e:
+        except git.exc.GitCommandError:
             try:
                 # If the branch does not exist, create it from the current HEAD
                 repo.git.checkout('-b', branch)
                 console.log(f"Created and checked out new branch {branch} in repository {self.url}.", style="bold green")
-            except git.exc.GitCommandError as e:
-                raise GitError(f"Error checking out branch {branch} in repository {self.url}: {str(e)}")
+            except git.exc.GitCommandError as error:
+                raise GitError(f"Error checking out branch {branch} in repository {self.url}: {error}") from error
 
     def pull(self, branch: str | None = None) -> None:
         """Pulls the latest changes from the remote repository."""
@@ -81,5 +79,5 @@ class RepositoryService(BaseModel):
         try:
             repo.remotes.origin.pull(branch)
             console.log(f"Pulled latest changes from branch {branch} in repository {self.url}.", style="bold green")
-        except git.exc.GitCommandError as e:
-            raise GitError(f"Error pulling from repository {self.url}: {str(e)}")
+        except git.exc.GitCommandError as error:
+            raise GitError(f"Error pulling from repository {self.url}: {error}") from error

@@ -1,3 +1,4 @@
+from typing import Any
 import abc
 import importlib.metadata
 import os
@@ -34,10 +35,10 @@ class PackageDependenciesInstaller(BaseModel, metaclass=abc.ABCMeta):
         entrypoint = next((ep for ep in entrypoints if ep.name == package.type.value), None)
         if entrypoint is None:
             raise DependenciesError(f"No entry point found for package type '{package.type}' in group '{entrypoints_group_name}'. Ensure you have registered the dependencies installer for this package type.")
-        Installer = entrypoint.load()
-        if not issubclass(Installer, cls):
+        installer = entrypoint.load()
+        if not issubclass(installer, cls):
             raise DependenciesError(f"The entry point '{entrypoint.name}' does not point to a valid DependenciesInstaller subclass.")
-        return Installer(package=package, package_index=package_index)
+        return installer(package=package, package_index=package_index)
 
 
 class NodeJsPackageDependenciesInstaller(PackageDependenciesInstaller):
@@ -62,11 +63,11 @@ class UVPythonPackageDependenciesInstaller(PackageDependenciesInstaller):
     async def install_dependencies(self) -> None:
         console.log(f"Installing Python dependencies of package '{self.package.name}'...")
         command = ['uv', 'sync']
-        kwargs = {}
+        kwargs: dict[str, Any] = {}
         if self.package_index:
             env = dict(os.environ)
             env.pop('VIRTUAL_ENV', None)
-            env['UV_INDEX']=f'{self.package_index.name}={self.package_index.download_url}'
+            env['UV_INDEX'] = f'{self.package_index.name}={self.package_index.download_url}'
             if self.package_index.insecure_host:
                 env['UV_INSECURE_HOST'] = str(self.package_index.download_url.host)
             kwargs['env'] = env

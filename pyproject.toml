@@ -59,13 +59,22 @@ dev = [
     "ruff>=0.11.13",
 ]
 
+[tool.flake8]
+ignore = ["E501"]
+
+[tool.ruff]
+ignore = ["E501"]
+
 [tool.ruff.lint]
 select = ["F", "E", "W", "I", "S", "B", "SIM", "PIE", "RUF", "PL", "UP", "N"]
 ignore = ["I001", "E501"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S101"]
-"src/magaya/handshake/cli.py" = ["PLR0913", "PLR0917", "S104"]
+"src/kvo/devtools/cleanpackage.py" = ["S404"]
+"src/kvo/devtools/packagedependencies.py" = ["S404"]
+"src/kvo/devtools/publisher.py" = ["S404"]
+"src/kvo/devtools/packageversion.py" = ["S404"]
 
 [tool.mypy]
 disable_error_code = ["var-annotated"]

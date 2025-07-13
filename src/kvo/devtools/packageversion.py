@@ -27,10 +27,10 @@ class PackageVersion(BaseModel, metaclass=abc.ABCMeta):
         entrypoint = next((ep for ep in entrypoints if ep.name == package.type.value), None)
         if entrypoint is None:
             raise ValueError(f"No entry point found for package type '{package.type}' in group '{entrypoints_group_name}'. Ensure you have registered the package version retriever for package type '{package.type}'.")
-        VersionRetriever = entrypoint.load()
-        if not issubclass(VersionRetriever, PackageVersion):
+        version_retriever = entrypoint.load()
+        if not issubclass(version_retriever, PackageVersion):
             raise ValueError(f"The entry point '{entrypoint.name}' does not point to a valid DependenciesInstaller subclass.")
-        return VersionRetriever(package=package)
+        return version_retriever(package=package)
 
 
 class NodeJsPackageVersion(PackageVersion):

@@ -1,13 +1,14 @@
 from enum import Enum
 
 import rich.console
-from pydantic import HttpUrl, SecretStr, TypeAdapter
+from pydantic import HttpUrl, AnyHttpUrl, SecretStr, TypeAdapter
 
 
 console = rich.console.Console()
 
 
 HttpUrlAdapter = TypeAdapter(HttpUrl)
+AnyHttpUrlAdapter = TypeAdapter(AnyHttpUrl)
 SecretStrAdapter = TypeAdapter(SecretStr)
 
 

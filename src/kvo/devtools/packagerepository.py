@@ -1,7 +1,7 @@
 from datetime import datetime
 from collections.abc import Sequence
 from zoneinfo import ZoneInfo
-
+from http import HTTPStatus
 
 import httpx
 from tzlocal import get_localzone_name
@@ -121,10 +121,10 @@ class PackageRepository(BaseModel):
     def get_local_git_repo(self) -> git.Repo:
         try:
             return git.Repo(self.package.path)
-        except git.exc.InvalidGitRepositoryError:
-            raise PackageRepositoryError(f"The path {self.package.path} is not a valid Git repository.")
-        except git.exc.NoSuchPathError:
-            raise PackageRepositoryError(f"The path {self.package.path} does not exist or is not a valid directory.")
+        except git.exc.InvalidGitRepositoryError as error:
+            raise PackageRepositoryError(f"The path {self.package.path} is not a valid Git repository.") from error
+        except git.exc.NoSuchPathError as error:
+            raise PackageRepositoryError(f"The path {self.package.path} does not exist or is not a valid directory.") from error
 
     def get_active_branch(self) -> PackageBranch:
         """
@@ -155,7 +155,7 @@ class PackageRepository(BaseModel):
                 date=branch.commit.committed_datetime.astimezone(local_tz)
             ))
         return branches
-    
+
     async def get_local_branch(self, branch_name: str) -> PackageBranch | None:
         found = (branch for branch in await self.get_local_branches() if branch.branch_name == branch_name)
         return next(found, None)
@@ -210,7 +210,7 @@ class PackageRepository(BaseModel):
                 for token in tokens:
                     headers = {"Authorization": f"token {token.get_secret_value()}"}
                     response = await client.get(url, headers=headers)
-                    if response.status_code == 404:
+                    if response.status_code == HTTPStatus.NOT_FOUND:
                         continue
                     response.raise_for_status()
                     data = response.json()
