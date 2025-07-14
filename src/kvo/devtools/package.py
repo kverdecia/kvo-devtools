@@ -5,7 +5,6 @@ from pydantic import BaseModel, Field, AnyHttpUrl, ConfigDict
 
 from . import gitservice
 from .types import PackageTypes, AnyHttpUrlAdapter
-from .publisher import PackagePublisher
 
 
 class Repository(BaseModel):
@@ -115,15 +114,3 @@ class Package(BaseModel):
 
     async def download(self) -> None:
         await asyncio.to_thread(self.download_sync)
-
-    async def publish(self) -> None:
-        """
-        Publishes the package to its package index.
-        This method should be implemented to perform the actual publishing operation.
-        """
-        if self.type is None:
-            raise ValueError("Package type is not set for this package.")
-
-        publisher_class = PackagePublisher.from_package_type(self.type)
-        publisher = publisher_class(package_dir=self.path, package_index=self.package_index)
-        await publisher.publish()

@@ -39,6 +39,9 @@ nodejs = "kvo.devtools.packageversion:NodeJsPackageVersion"
 python-uv = "kvo.devtools.cleanpackage:UvPythonCleanPackage"
 nodejs = "kvo.devtools.cleanpackage:NodeJsCleanPackage"
 
+[project.entry-points.kvo-devtools-package-publisher]
+python-uv = "kvo.devtools.packagepublisher:PythonUvPackagePublisher"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
@@ -73,7 +76,7 @@ ignore = ["I001", "E501"]
 "tests/*" = ["S101"]
 "src/kvo/devtools/cleanpackage.py" = ["S404"]
 "src/kvo/devtools/packagedependencies.py" = ["S404"]
-"src/kvo/devtools/publisher.py" = ["S404"]
+"src/kvo/devtools/packagepublisher.py" = ["S404"]
 "src/kvo/devtools/packageversion.py" = ["S404"]
 
 [tool.mypy]
