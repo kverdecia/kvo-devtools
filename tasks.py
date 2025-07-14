@@ -17,6 +17,7 @@ from kvo.devtools.packageversion import PackageVersion
 from kvo.devtools.cleanpackage import CleanPackage
 from kvo.devtools.packagerepository import PackageRepository, PackageBranchWithOrigin
 from kvo.devtools.setuppackage import setup_package as devtools_setup_package
+from kvo.devtools.packagepublisher import PackagePublisher
 
 
 dotenv.load_dotenv(override=True, verbose=True)
@@ -138,7 +139,8 @@ def publish_package(c, name: str):
     Publishes a package to its package index.
     """
     package = _find_package(name)
-    asyncio.run(package.publish())
+    publisher = PackagePublisher.from_package(package)
+    asyncio.run(publisher.publish_package())
 
 
 @task
