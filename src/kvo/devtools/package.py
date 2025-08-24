@@ -1,5 +1,7 @@
+import os
 import asyncio
 from pathlib import Path
+import string
 
 from pydantic import BaseModel, Field, AnyHttpUrl, ConfigDict
 
@@ -61,6 +63,37 @@ class Repository(BaseModel):
         return name
 
 
+class Docker(BaseModel):
+    args: dict[str, str] | None = Field(
+        None, description="The arguments to pass to the Docker build command. Keys are the argument names and values are the argument values. "
+        " If you want to pass environment variables, you can use the format $ENV_<var_name> or ${ENV_<var_name>}, for example: ${ENV_NPM_TOKEN}. "
+        " This format is the one used by the python string module template strings"
+    )
+
+    def template_context(self) -> dict[str, str]:
+        """Returns the context to use in template substitutions.
+
+        Returns:
+            dict[str, str]: The template context.
+        """
+        result = {}
+        for key, value in os.environ.items():
+            result[f"ENV_{key}"] = value
+        return result
+
+    def get_args(self) -> dict[str, str]:
+        """Returns the arguments to pass to the Docker build command. The values of the arguments will be resolved at runtime.
+
+        Returns:
+            dict[str, str]: The arguments to pass to the Docker build command.
+        """
+        params = self.args or {}
+        result = {}
+        for key, value in params.items():
+            template = string.Template(value)
+            result[key] = template.substitute(self.template_context())
+        return result
+
 class Package(BaseModel):
     """
     Represents a package with a name and path.
@@ -79,6 +112,10 @@ class Package(BaseModel):
     package_index: str | None = Field(
         None,
         description="The package index where this package is registered, if applicable."
+    )
+    docker: Docker | None = Field(
+        None,
+        description="The Docker configuration for the package, if applicable."
     )
 
     model_config = ConfigDict(extra='forbid')
