@@ -28,7 +28,7 @@ class DockerBuilder(BaseModel):
             raise FileNotFoundError(f"Dockerfile not found in {self.package.path}")
         command = [
             'docker', 'build',
-            '--pull', '--rm',
+            '--pull', '--rm', '--no-cache',
             *await self.get_build_args(),
             '-f', 'Dockerfile',
             '-t', f"{self.package.name}:latest",

@@ -34,9 +34,7 @@ def _load_index():
     if not path.exists():
         raise FileNotFoundError(f"Index file {path} does not exist.")
 
-    data = json.loads(path.read_text())
-
-    return Index.model_validate(data)
+    return Index.model_validate_json(path.read_text())  # Validate the JSON structure
 
 
 def _find_package(name: str) -> Package:
