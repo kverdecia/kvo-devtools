@@ -18,6 +18,7 @@ from kvo.devtools.cleanpackage import CleanPackage
 from kvo.devtools.packagerepository import PackageRepository, PackageBranchWithOrigin
 from kvo.devtools.setuppackage import setup_package as devtools_setup_package
 from kvo.devtools.packagepublisher import PackagePublisher
+from kvo.devtools.dockerbuilder import DockerBuilder
 
 
 dotenv.load_dotenv(override=True, verbose=True)
@@ -33,9 +34,7 @@ def _load_index():
     if not path.exists():
         raise FileNotFoundError(f"Index file {path} does not exist.")
 
-    data = json.loads(path.read_text())
-
-    return Index.model_validate(data)
+    return Index.model_validate_json(path.read_text())  # Validate the JSON structure
 
 
 def _find_package(name: str) -> Package:
@@ -223,3 +222,13 @@ def package_branches(c, name: str):
     repository = PackageRepository.from_package(package, get_github_token())
     branches = asyncio.run(repository.get_branches())
     PackageBranchWithOrigin.print_table(branches)
+
+
+@task
+def docker_build(c, name: str):
+    """
+    Builds a Docker image for a package.
+    """
+    package = _find_package(name)
+    docker_builder = DockerBuilder.from_package(package)
+    asyncio.run(docker_builder.build_image())
