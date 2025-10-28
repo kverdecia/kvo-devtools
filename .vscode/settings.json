@@ -6,6 +6,7 @@
         "gitpython",
         "gitservice",
         "hexsha",
+        "mkcert",
         "packagedependencies",
         "packageindexes",
         "packagepublisher",
