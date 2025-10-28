@@ -232,3 +232,16 @@ def docker_build(c, name: str):
     package = _find_package(name)
     docker_builder = DockerBuilder.from_package(package)
     asyncio.run(docker_builder.build_image())
+
+
+@task
+def generate_ca_bundle(c):
+    """
+    Generates the CA bundle by adding missing certificates to the bundle file.
+    """
+    index = _load_index()
+    if index.certificates is None:
+        console.log("No certificates configuration found in the index.", style="bold red")
+        sys.exit(1)
+    index.certificates.add_certificates_to_bundle()
+    console.log("CA bundle generated successfully.", style="bold green")
