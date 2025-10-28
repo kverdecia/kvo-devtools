@@ -64,6 +64,8 @@ class Repository(BaseModel):
 
 
 class Docker(BaseModel):
+    container_name: str | None = Field(None, description="The name of the Docker container.")
+    port: int | None = Field(8_000, description="The port to expose for the Docker container.")
     args: dict[str, str] | None = Field(
         None, description="The arguments to pass to the Docker build command. Keys are the argument names and values are the argument values. "
         " If you want to pass environment variables, you can use the format $ENV_<var_name> or ${ENV_<var_name>}, for example: ${ENV_NPM_TOKEN}. "

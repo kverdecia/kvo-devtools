@@ -271,3 +271,43 @@ def caddy_restart(c):
         sys.exit(1)
     asyncio.run(index.caddy.restart_caddy())
     console.log("Caddy server restarted successfully.", style="bold green")
+
+
+@task
+def caddy_open_sites_available(c):
+    """
+    Opens the Caddy sites-available directory.
+    """
+    index = _load_index()
+    if index.caddy is None:
+        console.log("No Caddy configuration found in the index.", style="bold red")
+        sys.exit(1)
+    with c.cd(index.caddy.sites_available_dir):
+        c.run("open .")
+
+
+@task
+def caddy_open_sites_enabled(c):
+    """
+    Opens the Caddy sites-enabled directory.
+    """
+    index = _load_index()
+    if index.caddy is None:
+        console.log("No Caddy configuration found in the index.", style="bold red")
+        sys.exit(1)
+    with c.cd(index.caddy.sites_enabled_dir):
+        c.run("open .")
+
+
+@task
+def caddy_create_docker_site(c, name: str):
+    """
+    Creates a Caddy site configuration for a package and enables it.
+    """
+    package = _find_package(name)
+    index = _load_index()
+    if index.caddy is None:
+        console.log("No Caddy configuration found in the index.", style="bold red")
+        sys.exit(1)
+    asyncio.run(index.caddy.create_package_docker_site(package))
+    console.log(f"Caddy site configuration created successfully for package '{name}'.", style="bold green")
