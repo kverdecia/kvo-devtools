@@ -3,6 +3,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from .package import Package
 from .packageindexes import PackageIndex
 from .certificates import Certificates
+from .caddy import Caddy
 
 
 class Index(BaseModel):
@@ -10,6 +11,7 @@ class Index(BaseModel):
     packages: list[Package] = []
     certificates: Certificates | None = None
     package_indexes: list[PackageIndex] = []
+    caddy: Caddy | None = None
 
     model_config = ConfigDict(extra='forbid')
 

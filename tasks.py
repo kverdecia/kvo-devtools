@@ -258,3 +258,16 @@ def create_package_certificates(c, name: str):
         sys.exit(1)
     asyncio.run(index.certificates.create_package_certificates(package))
     console.log(f"Certificates created successfully for package '{name}'.", style="bold green")
+
+
+@task
+def caddy_restart(c):
+    """
+    Restarts the Caddy server using Docker Compose.
+    """
+    index = _load_index()
+    if index.caddy is None:
+        console.log("No Caddy configuration found in the index.", style="bold red")
+        sys.exit(1)
+    asyncio.run(index.caddy.restart_caddy())
+    console.log("Caddy server restarted successfully.", style="bold green")
