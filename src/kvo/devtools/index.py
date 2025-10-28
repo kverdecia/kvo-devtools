@@ -2,11 +2,13 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from .package import Package
 from .packageindexes import PackageIndex
+from .certificates import Certificates
 
 
 class Index(BaseModel):
     index_schema: str | None = Field(default=None, description="Address of a file with the schema definition of the index.json.", alias='$schema')
     packages: list[Package] = []
+    certificates: Certificates | None = None
     package_indexes: list[PackageIndex] = []
 
     model_config = ConfigDict(extra='forbid')
