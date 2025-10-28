@@ -117,6 +117,10 @@ class Package(BaseModel):
         None,
         description="The Docker configuration for the package, if applicable."
     )
+    dns: list[str] | None = Field(
+        None,
+        description="List of DNS names associated with the package, if applicable."
+    )
 
     model_config = ConfigDict(extra='forbid')
 

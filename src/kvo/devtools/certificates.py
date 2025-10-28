@@ -1,7 +1,12 @@
+import asyncio
 from pathlib import Path
 from collections.abc import Iterator
 
 from pydantic import BaseModel, Field, field_validator, DirectoryPath, FilePath
+
+from .types import console
+from .package import Package
+from .errors import CertificateCreationError
 
 
 class Certificates(BaseModel):
@@ -50,3 +55,35 @@ class Certificates(BaseModel):
             for certificate in self.get_certificates_missing_in_bundle():
                 cert_content = certificate.read_text()
                 bundle_file.write(f"\n{cert_content}")
+
+    async def create_package_certificates(self, package: Package) -> None:
+        """
+        Creates symbolic links for the public certificates in the package's parent directory.
+        """
+        if not package.dns:
+            console.log(f"No DNS entries found for package '{package.name}'. Skipping certificate creation.", style="bold yellow")
+            return
+        with self.ca_bundle_path.open('a') as bundle_file:
+            bundle_content = self.ca_bundle_path.read_text()
+            for dns in package.dns:
+                cert_path = self.certificates_dir / f"{dns}.pem"
+                if cert_path.exists():
+                    console.log(f"Certificate for DNS '{dns}' already exists. Skipping creation.", style="bold yellow")
+                    continue
+                command = ['mkcert', dns]
+                process = await asyncio.create_subprocess_exec(
+                    *command,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    cwd=self.certificates_dir,
+                )
+                _, stderr = await process.communicate()
+                if process.returncode != 0:
+                    raise CertificateCreationError(
+                        f"Error creating certificate for DNS '{dns}': {stderr.decode('utf-8') if stderr else ''}"
+                    )
+                console.log(f"Successfully created certificate for DNS '{dns}'.", style="bold green")
+                cert_content = cert_path.read_text()
+                if cert_content not in bundle_content:
+                    bundle_file.write(f"\n{cert_content}")
+                    console.log(f"Added certificate for DNS '{dns}' to CA bundle.", style="bold green")
