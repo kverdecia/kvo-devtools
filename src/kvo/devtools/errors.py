@@ -16,3 +16,11 @@ class PublishError(DevToolsError):
 
 class PackageRepositoryError(DevToolsError):
     """Exception raised for errors related to package repositories."""
+
+
+class CertificateError(DevToolsError):
+    """Exception raised for errors related to certificates."""
+
+
+class CertificateCreationError(CertificateError):
+    """Exception raised for errors during certificate creation."""
