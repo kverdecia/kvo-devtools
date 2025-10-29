@@ -6,7 +6,6 @@ from pydantic import BaseModel, Field, field_validator, DirectoryPath, FilePath
 
 from .dockercompose import DockerComposeService
 from .package import Package
-from .types import console
 from .devcontainer import DevContainer
 from . import errors
 
@@ -52,28 +51,20 @@ class CaddySiteConfig(BaseModel):
         return template.substitute(context)
 
     def save(self, override: bool = False) -> None:
-        if self.site_filename.exists() and not override:
-            raise errors.CaddySiteExistsError(
-                f"Caddy site configuration for package '{self.package.name}' already exists at {self.site_filename}."
-            )
+        # if self.site_filename.exists() and not override:
+        #     raise errors.CaddySiteExistsError(
+        #         f"Caddy site configuration for package '{self.package.name}' already exists at {self.site_filename}."
+        #     )
         self.site_filename.write_text(self.site_content)
 
 
 class DockerCaddySiteConfig(CaddySiteConfig):
-    @property
-    def site_filename(self) -> Path:
-        return self.sites_directory / f'{self.package.name}.docker.Caddyfile'
-
     @property
     def internal_address(self) -> str:
         return self.package.docker.container_name if self.package.docker and self.package.docker.container_name else self.package.name
 
 
 class DevcontainerCaddySiteConfig(CaddySiteConfig):
-    @property
-    def site_filename(self) -> Path:
-        return self.sites_directory / f'{self.package.name}.devcontainer.Caddyfile'
-
     @property
     def internal_address(self) -> str:
         devcontainer = DevContainer(package=self.package)
@@ -83,10 +74,9 @@ class DevcontainerCaddySiteConfig(CaddySiteConfig):
 class Caddy(BaseModel):
     docker_compose: DockerComposeService
     caddy_file: FilePath
-    sites_available_dir: DirectoryPath = Field(..., description="Directory for available Caddy site configurations. If relative, it's relative to the caddy file.")
-    sites_enabled_dir: DirectoryPath = Field(..., description="Directory for enabled Caddy site configurations. If relative, it's relative to the caddy file.")
+    sites_dir: DirectoryPath = Field(..., description="Directory for enabled Caddy site configurations. If relative, it's relative to the caddy file.")
 
-    @field_validator('sites_available_dir', 'sites_enabled_dir', mode='before')
+    @field_validator('sites_dir', mode='before')
     @classmethod
     def validate_site_dirs(cls, site_dir, info):
         """
@@ -111,11 +101,12 @@ class Caddy(BaseModel):
     def docker_site_config(self, package: Package) -> CaddySiteConfig:
         return DockerCaddySiteConfig(
             package=package,
-            sites_directory=self.sites_available_dir
+            sites_directory=self.sites_dir
         )
 
     def devcontainer_site_config(self, package: Package) -> CaddySiteConfig:
         return DevcontainerCaddySiteConfig(
             package=package,
-            sites_directory=self.sites_available_dir
+            sites_directory=self.sites_dir
         )
+
