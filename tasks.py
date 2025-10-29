@@ -19,6 +19,7 @@ from kvo.devtools.packagerepository import PackageRepository, PackageBranchWithO
 from kvo.devtools.setuppackage import setup_package as devtools_setup_package
 from kvo.devtools.packagepublisher import PackagePublisher
 from kvo.devtools.dockerbuilder import DockerBuilder
+from kvo.devtools import errors
 
 
 dotenv.load_dotenv(override=True, verbose=True)
@@ -300,7 +301,7 @@ def caddy_open_sites_enabled(c):
 
 
 @task
-def caddy_create_docker_site(c, name: str):
+def caddy_docker_site(c, name: str):
     """
     Creates a Caddy site configuration for a package and enables it.
     """
@@ -309,5 +310,25 @@ def caddy_create_docker_site(c, name: str):
     if index.caddy is None:
         console.log("No Caddy configuration found in the index.", style="bold red")
         sys.exit(1)
-    asyncio.run(index.caddy.create_package_docker_site(package))
-    console.log(f"Caddy site configuration created successfully for package '{name}'.", style="bold green")
+    try:
+        index.caddy.docker_site_config(package).save(override=False)
+        console.log(f"Caddy site configuration created successfully for package '{name}'.", style="bold green")
+    except errors.DevToolsError as e:
+        console.log(e, style="bold red")
+
+
+@task
+def caddy_devcontainer_site(c, name: str):
+    """
+    Creates a Caddy site configuration for a package based on its devcontainer and enables it.
+    """
+    package = _find_package(name)
+    index = _load_index()
+    if index.caddy is None:
+        console.log("No Caddy configuration found in the index.", style="bold red")
+        sys.exit(1)
+    try:
+        index.caddy.devcontainer_site_config(package).save(override=False)
+        console.log(f"Caddy site configuration created successfully for package '{name}'.", style="bold green")
+    except errors.DevToolsError as e:
+        console.log(e, style="bold red")
