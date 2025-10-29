@@ -32,3 +32,15 @@ class CertificateCreationError(CertificateError):
 
 class CaddyError(DevToolsError):
     """Exception raised for errors related to Caddy server operations."""
+
+
+class CaddySiteExistsError(CaddyError):
+    """Exception raised when a Caddy site configuration already exists."""
+
+
+class CaddySiteMissingError(CaddyError):
+    """Exception raised when a Caddy site configuration is missing."""
+
+
+class CaddyDnsMissingError(CaddyError):
+    """Exception raised when a package lacks DNS configuration for Caddy."""
