@@ -27,34 +27,59 @@ class CaddySiteConfig(BaseModel):
         return self.package.docker.port if self.package.docker and self.package.docker.port else 8000
 
     @property
-    def dns(self) -> str | None:
+    def dns(self) -> str:
         if not self.package.dns:
             raise errors.CaddyDnsMissingError(f"Package '{self.package.name}' does not have any DNS names configured.")
-        return self.package.dns[0]
+        return self.package.dns[0] if isinstance(self.package.dns[0], str) else self.package.dns[0].dns
 
     @property
-    def site_content(self) -> str:
-        template_str = """
+    def https(self) -> bool:
+        if not self.package.dns:
+            raise errors.CaddyDnsMissingError(f"Package '{self.package.name}' does not have any DNS names configured.")
+        if isinstance(self.package.dns[0], str):
+            return True
+        return self.package.dns[0].https
+
+    @property
+    def site_context(self) -> dict:
+        return {
+            "dns": self.dns,
+            "internal_address": self.internal_address,
+            "port": self.port,
+        }
+
+    def render_site_template(self, template: str) -> str:
+        template_str = textwrap.dedent(template).lstrip()
+        template = string.Template(template_str)
+        return template.substitute(self.site_context)
+
+    @property
+    def https_site_content(self) -> str:
+        template = """
         https://${dns} {
             tls /certs/${dns}.pem /certs/${dns}-key.pem
 
             reverse_proxy http://${internal_address}:${port}
         }
         """
-        template_str = textwrap.dedent(template_str).lstrip()
-        template = string.Template(template_str)
-        context = {
-            "dns": self.dns,
-            "internal_address": self.internal_address,
-            "port": self.port,
+        return self.render_site_template(template)
+
+    @property
+    def http_site_content(self) -> str:
+        template = """
+        http://${dns} {
+            reverse_proxy http://${internal_address}:${port}
         }
-        return template.substitute(context)
+        """
+        return self.render_site_template(template)
+
+    @property
+    def site_content(self) -> str:
+        if self.https:
+            return self.https_site_content
+        return self.http_site_content
 
     def save(self, override: bool = False) -> None:
-        # if self.site_filename.exists() and not override:
-        #     raise errors.CaddySiteExistsError(
-        #         f"Caddy site configuration for package '{self.package.name}' already exists at {self.site_filename}."
-        #     )
         self.site_filename.write_text(self.site_content)
 
 
@@ -109,4 +134,3 @@ class Caddy(BaseModel):
             package=package,
             sites_directory=self.sites_dir
         )
-
