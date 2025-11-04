@@ -96,6 +96,12 @@ class Docker(BaseModel):
             result[key] = template.substitute(self.template_context())
         return result
 
+
+class DNSInfo(BaseModel):
+    dns: str
+    https: bool = True
+
+
 class Package(BaseModel):
     """
     Represents a package with a name and path.
@@ -119,7 +125,7 @@ class Package(BaseModel):
         None,
         description="The Docker configuration for the package, if applicable."
     )
-    dns: list[str] | None = Field(
+    dns: list[str | DNSInfo] | None = Field(
         None,
         description="List of DNS names associated with the package, if applicable."
     )

@@ -56,6 +56,28 @@ class Certificates(BaseModel):
                 cert_content = certificate.read_text()
                 bundle_file.write(f"\n{cert_content}")
 
+    async def create_certificate_for_dns(self, dns: str) -> Path:
+        """
+        Creates a certificate for the given DNS using mkcert.
+        """
+        cert_path = self.certificates_dir / f"{dns}.pem"
+        if cert_path.exists():
+            console.log(f"Certificate for DNS '{dns}' already exists. Skipping creation.", style="bold yellow")
+            return cert_path
+        command = ['mkcert', dns]
+        process = await asyncio.create_subprocess_exec(
+            *command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd=self.certificates_dir,
+        )
+        _, stderr = await process.communicate()
+        if process.returncode != 0:
+            raise CertificateCreationError(
+                f"Error creating certificate for DNS '{dns}': {stderr.decode('utf-8') if stderr else ''}"
+            )
+        console.log(f"Successfully created certificate for DNS '{dns}'.", style="bold green")
+        return cert_path
 
     async def create_package_certificates(self, package: Package) -> None:
         """
@@ -67,23 +89,7 @@ class Certificates(BaseModel):
         with self.ca_bundle_path.open('a') as bundle_file:
             bundle_content = self.ca_bundle_path.read_text()
             for dns in package.dns:
-                cert_path = self.certificates_dir / f"{dns}.pem"
-                if cert_path.exists():
-                    console.log(f"Certificate for DNS '{dns}' already exists. Skipping creation.", style="bold yellow")
-                    continue
-                command = ['mkcert', dns]
-                process = await asyncio.create_subprocess_exec(
-                    *command,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                    cwd=self.certificates_dir,
-                )
-                _, stderr = await process.communicate()
-                if process.returncode != 0:
-                    raise CertificateCreationError(
-                        f"Error creating certificate for DNS '{dns}': {stderr.decode('utf-8') if stderr else ''}"
-                    )
-                console.log(f"Successfully created certificate for DNS '{dns}'.", style="bold green")
+                cert_path = await self.create_certificate_for_dns(dns if isinstance(dns, str) else dns.dns)
                 cert_content = cert_path.read_text()
                 if cert_content not in bundle_content:
                     bundle_file.write(f"\n{cert_content}")
