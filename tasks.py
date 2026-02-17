@@ -19,6 +19,7 @@ from kvo.devtools.packagerepository import PackageRepository, PackageBranchWithO
 from kvo.devtools.setuppackage import setup_package as devtools_setup_package
 from kvo.devtools.packagepublisher import PackagePublisher
 from kvo.devtools.dockerbuilder import DockerBuilder
+from kvo.devtools.dockercompose import DockerComposeService
 from kvo.devtools import errors
 
 
@@ -332,3 +333,53 @@ def caddy_devcontainer_site(c, name: str):
         console.log(f"Caddy site configuration created successfully for package '{name}'.", style="bold green")
     except errors.DevToolsError as e:
         console.log(e, style="bold red")
+
+
+@task
+def compose_start(c, name: str):
+    """
+    Starts a Docker Compose service for a package.
+    """
+    package = _find_package(name)
+    compose_service = DockerComposeService.from_package(package)
+    asyncio.run(compose_service.start())
+
+@task
+def compose_stop(c, name: str):
+    """
+    Stops a Docker Compose service for a package.
+    """
+    package = _find_package(name)
+    compose_service = DockerComposeService.from_package(package)
+    asyncio.run(compose_service.stop())
+
+
+@task
+def compose_restart(c, name: str):
+    """
+    Restarts a Docker Compose service for a package.
+    """
+    package = _find_package(name)
+    compose_service = DockerComposeService.from_package(package)
+    asyncio.run(compose_service.restart())
+
+
+@task
+def compose_reset(c, name: str, show_logs: bool = False):
+    """
+    Restarts a Docker Compose service for a package.
+    """
+    compose_stop(c, name)
+    compose_start(c, name)
+    if show_logs:
+        compose_logs(c, name, follow=True)
+
+
+@task
+def compose_logs(c, name: str, follow: bool = False):
+    """
+    Shows the logs of a Docker Compose service for a package.
+    """
+    package = _find_package(name)
+    compose_service = DockerComposeService.from_package(package)
+    asyncio.run(compose_service.logs(follow=follow))

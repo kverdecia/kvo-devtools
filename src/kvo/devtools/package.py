@@ -3,7 +3,7 @@ import asyncio
 from pathlib import Path
 import string
 
-from pydantic import BaseModel, Field, AnyHttpUrl, ConfigDict
+from pydantic import BaseModel, Field, AnyHttpUrl, DirectoryPath, ConfigDict
 
 from . import gitservice
 from .types import PackageTypes, AnyHttpUrlAdapter
@@ -63,6 +63,11 @@ class Repository(BaseModel):
         return name
 
 
+class Compose(BaseModel):
+    directory: DirectoryPath = Field(..., description="The path to the docker-compose file.")
+    service_name: str = Field(..., description="The name of the service in the docker-compose file to use for this package.")
+
+
 class Docker(BaseModel):
     container_name: str | None = Field(None, description="The name of the Docker container.")
     port: int | None = Field(8_000, description="The port to expose for the Docker container.")
@@ -70,6 +75,9 @@ class Docker(BaseModel):
         None, description="The arguments to pass to the Docker build command. Keys are the argument names and values are the argument values. "
         " If you want to pass environment variables, you can use the format $ENV_<var_name> or ${ENV_<var_name>}, for example: ${ENV_NPM_TOKEN}. "
         " This format is the one used by the python string module template strings"
+    )
+    compose: Compose | None = Field(
+        None, description="The docker compose configuration for this package. If set, the package will be run using docker compose instead of a single docker container."
     )
 
     def template_context(self) -> dict[str, str]:
