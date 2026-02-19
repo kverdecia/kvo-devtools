@@ -15,3 +15,5 @@ wheels/
 .env
 index.json
 index-schema.json
+kvo-devtools.json
+kvo-devtools.schema.json

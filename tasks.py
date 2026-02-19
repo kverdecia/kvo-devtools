@@ -9,7 +9,7 @@ from pydantic import SecretStr
 from invoke.tasks import task
 import dotenv
 
-from kvo.devtools.index import Index
+from kvo.devtools.index import IndexSettings
 from kvo.devtools.package import Package
 from kvo.devtools.packageindexes import PackageIndex
 from kvo.devtools.packagedependencies import PackageDependenciesInstaller
@@ -32,11 +32,8 @@ def _load_index():
     Loads the index.json file and returns an Index object.
     If the file does not exist, it raises a FileNotFoundError.
     """
-    path = Path('index.json')
-    if not path.exists():
-        raise FileNotFoundError(f"Index file {path} does not exist.")
-
-    return Index.model_validate_json(path.read_text())  # Validate the JSON structure
+    settings = IndexSettings.model_validate({})
+    return settings.load_index()
 
 
 def _find_package(name: str) -> Package:
@@ -74,14 +71,31 @@ def find_package_index(c, name: str):
 
 
 @task
-def generate_index_schema(c):
+def index_info(c):
+    settings = IndexSettings.model_validate({})
+    console.print(f"Index file: {settings.index_file.absolute()}")
+    with settings.index_file.open() as f:
+        index_data = json.load(f)
+        schema_path = index_data.get('$schema', None)
+        if schema_path:
+            console.print(f"Index schema path: {Path(schema_path).absolute()}")
+        else:
+            console.print("No $schema field found in the index file.", style="bold yellow")
+    console.print(f"Default index schema path: {settings.default_index_schema_path.absolute()}")
+
+
+
+@task
+def generate_index_schema(c, override: bool = False):
     """
     Generates the index schema of the index json file used by the devtools package.
     """
-    schema = Index.model_json_schema()
-    path = Path('index-schema.json')
-    path.write_text(json.dumps(schema, indent=4))
-    console.log(f"Index schema generated successfully in {path}.", style="bold green")
+    try:
+        settings = IndexSettings.model_validate({})
+        settings.generate_index_schema(override=override)
+        console.log(f"Index schema generated successfully in {settings.default_index_schema_path.absolute()}.", style="green")
+    except FileExistsError:
+        console.log(f"Schema file {settings.default_index_schema_path.absolute()} already exists. Use --override to overwrite it.", style="bold red")
 
 
 @task
