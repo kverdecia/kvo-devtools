@@ -263,7 +263,7 @@ def generate_ca_bundle(c):
     console.log("CA bundle generated successfully.", style="bold green")
 
 @task
-def create_package_certificates(c, name: str):
+def create_package_certificates(c, name: str, override: bool = False):
     """
     Creates certificates for a package based on its DNS entries.
     """
@@ -272,7 +272,11 @@ def create_package_certificates(c, name: str):
     if index.certificates is None:
         console.log("No certificates configuration found in the index.", style="bold red")
         sys.exit(1)
-    asyncio.run(index.certificates.create_package_certificates(package))
+    try:
+        asyncio.run(index.certificates.create_package_certificates(package, override=override))
+    except FileExistsError as e:
+        console.log(f"{e} Use --override to overwrite existing certificates.", style="bold red")
+        sys.exit(1)
     console.log(f"Certificates created successfully for package '{name}'.", style="bold green")
 
 
